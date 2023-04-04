@@ -247,6 +247,7 @@ class FLIGHT_CONTROLLER:
         self.reached_index = data.wp_seq
 
     def get_battery_status(self, data):
+        self.bat_voltage = data.voltage
         self.bat_percentage = data.percentage
 
 
@@ -352,11 +353,11 @@ def compute_waypoints(mav):
         # defining the origin as the gps coordinates of the spawn point
         origin = [mav.gps.x, mav.gps.y, 0]
         
-        wp0 = [0, 0, 1]
-        wp1 = [10, 0, 1]
-        wp2 = [10, 10, 1]
-        wp3 = [0, 10, 1]
-        wp4 = [0, 0, 1]
+        wp0 = [0, 0, 4]
+        wp1 = [10, 0, 4]
+        wp2 = [10, 10, 4]
+        wp3 = [0, 10, 4]
+        wp4 = [0, 0, 4]
         global wp
         wp = [wp0,wp1,wp2,wp3,wp4]
         # extracting latitude and longitude from given x,y,z coordinates 
@@ -414,7 +415,9 @@ if __name__ == '__main__':
     #Set time checkpoint for 800 seconds
     end_time = start_time+100
     safety = 10
-    vel = 3
+    vel = 1.5
+    des_speed = 0.5
+    land_time = 4/des_speed
     rate= rospy.Rate(20.0)
     time.sleep(3)
     print(mav.within_rad())
@@ -467,13 +470,19 @@ if __name__ == '__main__':
         count=0
         n_prev=mav.reached_index
         while True:
+            print(mav.bat_voltage)
+            print(mav.bat_percentage)
             time_left = end_time - time.time()
             if n_prev!=mav.reached_index:
                 count+=1 
                 print(n_prev,' reached')
-                calc_time = calc_dist(wp[n_prev%4-1],wp[n_prev%4])/vel
-                if calc_time>end_time-time.time()-safety:
+                calc_time = calc_dist(wp[n_prev%4-1],wp[n_prev%4])/vel + calc_dist(wp[n_prev%4],wp[0])/vel
+                if calc_time>end_time-time.time()-safety-land_time:
                     print('Abort run')
+                    print(time.time()-start_time)
+                    break
+                if mav.bat_voltage<15.6:
+                    print('Aborted due to battery')
                     break
                 n_prev = mav.reached_index
                 print(n_prev)
